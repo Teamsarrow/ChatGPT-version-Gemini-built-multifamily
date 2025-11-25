@@ -109,7 +109,7 @@
 
 <div class="report-container">
     <!-- Header Section -->
-<header class="header-section flex flex-col md:flex-row justify-between items-center bg-[#0A1A44] text-white border-b-4 border-[#CFAF66] py-4 px-6">
+   <header class="header-section flex flex-col md:flex-row justify-between items-center bg-[#0A1A44] text-white border-b-4 border-[#CFAF66] py-4 px-6">
 
     <!-- LEFT: Brand block -->
     <div class="text-center md:text-left leading-tight mb-4 md:mb-0">
@@ -123,16 +123,16 @@
             818-469-5309 · jonathan@sheishoperealty.com
         </p>
     </div>
-
     <!-- RIGHT: Title + Status -->
     <div class="text-center md:text-right leading-tight mb-4 md:mb-0 md:flex-1 md:pr-6">
-        <h1 class="text-2xl md:text-3xl font-bold">Multifamily Investment Pro Forma</h1>
-        <p class="text-sm">Cloud-Backed 5-Year Analysis (Data saved automatically)</p>
+        <h1 class="text-xl md:text-2xl font-bold whitespace-nowrap">
+            Multifamily Investment Pro Forma
+        </h1>
+
         <p id="statusMessage" class="mt-1 text-xs font-medium text-yellow-300 transition duration-300">
-            Initializing...
+            Enter fields with desired values to save a version
         </p>
     </div>
-
     <!-- BUTTON -->
     <div class="mt-4 md:mt-0 flex items-center">
         <button onclick="window.print()"
@@ -141,7 +141,6 @@
             Print/Save PDF
         </button>
     </div>
-
 </header>
 
     <!-- Tab Navigation (Hidden during print) -->
@@ -1327,19 +1326,22 @@ if (localSnapshot && localSnapshot.units && localSnapshot.units.length > 0) {
             showTab('assumptions');
 
         } catch (e) {
-            console.error("[Firebase] Initialization Error:", e);
-            setStatus(`Initialization Error: Check console for details.`, 'error');
-            // Hard fallback if Firebase setup itself fails
-            currentData = JSON.parse(JSON.stringify(defaultState)); 
-            unitIdCounter = defaultState.units.length + 1;
-            applyDataToDOMFromLoadedData(currentData);
-            renderUnitMixInput();
-            runAllCalculations(); // Run initial calc with defaults
-            renderAll();
-        }
-        // After Firebase init (success or failure), populate scenario dropdown
-    refreshScenarioDropdown();
-    }
+    console.error("[Firebase] Initialization Error:", e);
+
+    // Friendly message instead of scary error text
+    setStatus('Enter fields with desired values to save a version', 'info');
+
+    // Hard fallback if Firebase setup itself fails
+    currentData = JSON.parse(JSON.stringify(defaultState)); 
+    unitIdCounter = defaultState.units.length + 1;
+    applyDataToDOMFromLoadedData(currentData);
+    renderUnitMixInput();
+    runAllCalculations(); // Run initial calc with defaults
+    renderAll();
+}
+
+// After Firebase init (success or failure), populate scenario dropdown
+refreshScenarioDropdown();
 
     window.showTab = function(tabId) {
         document.querySelectorAll('.tab-content').forEach(tab => {
