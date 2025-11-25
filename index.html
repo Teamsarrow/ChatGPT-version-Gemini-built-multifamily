@@ -1271,90 +1271,108 @@ window.updateAndCalculate = function() {
     }
 }
 
-    // --- INITIALIZATION ---
-    
-    window.initializeApp = async function() {
-        setLogLevel('Debug');
-        setStatus('Starting Firebase...');
-        
-        try {
-            const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            
-            // 1. Authenticate User
-            const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-            
-            // Set currentData to default state immediately to ensure readInputs doesn't fail
-            currentData = JSON.parse(JSON.stringify(defaultState));
-            unitIdCounter = defaultState.units.length + 1;
-// Try restoring saved local snapshot, if any
-const localSnapshot = loadCurrentFromLocal();
-if (localSnapshot && localSnapshot.units && localSnapshot.units.length > 0) {
-    console.log('[LocalStorage] Restoring last-used scenario.');
-    currentData = localSnapshot;
-}
+   // --- INITIALIZATION ---
+window.initializeApp = async function () {
+    setLogLevel('Debug');
+    setStatus('Starting Firebase...');
 
-            if (initialAuthToken) {
-                await signInWithCustomToken(auth, initialAuthToken);
+    try {
+        const firebaseConfig = JSON.parse(
+            typeof __firebase_config !== 'undefined' ? __firebase_config : '{}'
+        );
+        const app = initializeApp(firebaseConfig);
+        db = getFirestore(app);
+        auth = getAuth(app);
+
+        const initialAuthToken =
+            typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Start with safe defaults so readInputs never breaks
+        currentData = JSON.parse(JSON.stringify(defaultState));
+        unitIdCounter = defaultState.units.length + 1;
+
+        // Try restoring saved local snapshot
+        const localSnapshot = loadCurrentFromLocal();
+        if (localSnapshot && localSnapshot.units && localSnapshot.units.length > 0) {
+            console.log('[LocalStorage] Restoring last-used scenario.');
+            currentData = localSnapshot;
+        }
+
+        // Push initial data to DOM and run calcs
+        applyDataToDOMFromLoadedData(currentData);
+        renderUnitMixInput();
+        runAllCalculations();
+        renderAll();
+
+        // Firebase auth (for cloud sync)
+        if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
+        } else {
+            await signInAnonymously(auth);
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                userId = user.uid;
+                isAuthReady = true;
+                console.log(`[Firebase] User authenticated. ID: ${userId}.`);
+                setStatus('Authenticated. Loading model...');
+                loadProForma();
             } else {
-                await signInAnonymously(auth);
+                isAuthReady = false;
+                console.error('[Firebase] Authentication failed. Using defaults.');
+                setStatus('Authentication failed. Using default data.', 'error');
+
+                currentData = JSON.parse(JSON.stringify(defaultState));
+                unitIdCounter = defaultState.units.length + 1;
+                applyDataToDOMFromLoadedData(currentData);
+                renderUnitMixInput();
+                updateAndCalculate();
             }
-
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    userId = user.uid;
-                    isAuthReady = true; // Set flag
-                    console.log(`[Firebase] User authenticated. ID: ${userId}.`);
-                    setStatus('Authenticated. Loading model...');
-                    loadProForma(); // 2. Load data immediately after successful auth
-                } else {
-                    isAuthReady = false;
-                    console.error("[Firebase] Authentication failed. Using defaults.");
-                    setStatus('Authentication failed. Using default data.', 'error');
-                    // Fallback to defaults if auth fails
-                    currentData = JSON.parse(JSON.stringify(defaultState));
-                    unitIdCounter = defaultState.units.length + 1;
-                    applyDataToDOMFromLoadedData(currentData);
-                    renderUnitMixInput(); 
-                    updateAndCalculate(); 
-                }
-            });
-            
-            // Start user on the Inputs & Assumptions tab
-            showTab('assumptions');
-
-        } catch (e) {
-    console.error("[Firebase] Initialization Error:", e);
-
-    // Friendly message instead of scary error text
-    setStatus('Enter fields with desired values to save a version', 'info');
-
-    // Hard fallback if Firebase setup itself fails
-    currentData = JSON.parse(JSON.stringify(defaultState)); 
-    unitIdCounter = defaultState.units.length + 1;
-    applyDataToDOMFromLoadedData(currentData);
-    renderUnitMixInput();
-    runAllCalculations(); // Run initial calc with defaults
-    renderAll();
-}
-
-// After Firebase init (success or failure), populate scenario dropdown
-refreshScenarioDropdown();
-
-    window.showTab = function(tabId) {
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.add('hidden');
         });
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.classList.remove('active');
-        });
+    } catch (e) {
+        console.error('[Firebase] Initialization Error:', e);
 
-        document.getElementById(tabId).classList.remove('hidden');
-        document.querySelector(`.nav-tabs button[onclick="showTab('${tabId}')"]`).classList.add('active');
+        // Friendly message instead of scary error text
+        setStatus('Enter fields with desired values to save a version', 'info');
+
+        // Hard fallback if Firebase setup itself fails
+        currentData = JSON.parse(JSON.stringify(defaultState));
+        unitIdCounter = defaultState.units.length + 1;
+        applyDataToDOMFromLoadedData(currentData);
+        renderUnitMixInput();
+        runAllCalculations();
+        renderAll();
     }
 
+    // After Firebase init (success or failure), populate scenarios and show Inputs tab
+    refreshScenarioDropdown();
+    showTab('assumptions');
+};
+
+
+// --- FIXED GLOBAL TAB SWITCHER ---
+window.showTab = function (tabId) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach((tab) => {
+        tab.classList.add('hidden');
+    });
+
+    // Reset all tab buttons
+    document.querySelectorAll('.tab-button').forEach((button) => {
+        button.classList.remove('active');
+    });
+
+    // Show the chosen tab
+    const content = document.getElementById(tabId);
+    if (content) content.classList.remove('hidden');
+
+    // Mark the corresponding button as active
+    const btn = document.querySelector(
+        `.nav-tabs button[onclick="showTab('${tabId}')"]`
+    );
+    if (btn) btn.classList.add('active');
+};
 </script>
 <!-- ===========================
      FOOTER — Navy + Gold (Option B)
